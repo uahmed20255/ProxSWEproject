@@ -23,3 +23,24 @@ A **React Native / Expo** mobile app that lets users manage a **grocery list** a
 ### **Dependencies**
 ```bash
 npm install
+```
+Database & Sample Data
+Tables
+
+groceries: id, user_id, name, qty, size, category, created_at
+product_prices: id, product_name, retailer_name, price, size
+View: grocery_price_comparison (joins groceries with product_prices, calculates total cost)
+
+Sample SQL
+```
+INSERT INTO product_prices (product_name, retailer_name, price, size) VALUES
+('Chicken Breasts','Ralphs',2.99,'per lb'),
+('Chicken Breasts','Whole Foods',7.99,'per lb'),
+('Chicken Breasts','Walmart',2.49,'per lb'),
+('Seedless Grapes','Vons',0.99,'per lb'),
+('Milk','Walmart',2.78,'1 gallon');
+
+INSERT INTO groceries (user_id, name, qty, size, category) VALUES
+('<USER_ID>', 'Milk', 2, '1 gallon', 'dairy'),
+('<USER_ID>', 'Chicken Breasts', 1, 'per lb', 'protein');
+```
