@@ -1,185 +1,105 @@
-Prox Grocery Price Comparison App – Track B
-Project Overview
+# **Prox Grocery Price Comparison App – Track B**
 
-This mobile app allows users to manage a grocery list and find the best prices across multiple stores. Built with React Native / Expo, it features Prox branding, authentication, and grocery list functionality backed by Supabase.
+## **Project Overview**
+This mobile app allows users to manage a **grocery list** and find the **best prices** across multiple stores. Built with **React Native / Expo**, it features **Prox branding**, **authentication**, and **grocery list functionality** backed by **Supabase**.
 
-Key Goals:
+**Key Goals:**
+- Provide a **clean, professional mobile experience**
+- Enable users to **track groceries**, **search**, and **manage their list**
+- Allow users to find the **cheapest total basket** across multiple retailers
 
-Provide a clean, professional mobile experience
+---
 
-Enable users to track groceries, search, and manage their list
+## **Features**
 
-Allow users to find the cheapest total basket across multiple retailers
+### **Branding & App Shell**
+- **Expo / React Native** mobile app
+- **Prox brand colors** and professional UI
+- Home screen with clear navigation:
+  - **Grocery List**
+  - **Price Comparison**
+  - **Sign In / Sign Out**
 
-Features
-1. Branding & App Shell
+### **Authentication System**
+- **Email/password sign up & login** via Supabase Auth
+- **Continue as Guest** option with a local session
+- **Proper sign-out functionality**
 
-Expo/React Native mobile app
+### **Grocery List (Manual Entry)**
+**Add Item Form:**
+- **Name** (required)
+- **Size** (optional)
+- **Category dropdown:** produce, protein, snacks, pantry, household
+- **Quantity** (number input)
 
-Prox brand colors and professional UI
+**List View:**
+- Displays **all grocery items**
+- **Search functionality**
+- **Sorting by name (A-Z)** or category
+- **Add/remove items**
+- **Persistent data** for logged-in users via Supabase
 
-Home screen navigation:
+### **Data Model**
+**Tables:**
+- **profiles:** id, email
+- **grocery_items:** id, user_id, name, size, category, qty, created_at
+- **product_prices:** id, product_name, retailer_name, price, size, updated_at
 
-Grocery List
+### **Price Comparison Feature**
+- "**Find Best Prices**" screen shows grocery items with **pricing across multiple retailers**
+- Users can adjust **1-5 retailers**:
+  - 1 = cheapest single store
+  - 2 = best 2 stores, etc.
+- Displays **total basket cost** and **which stores to visit**
 
-Price Comparison
+---
 
-Sign In / Sign Out
+## **Setup Instructions & Database**
 
-2. Authentication System
+**Install Dependencies:**  
+```bash
+  npm install
+## **Supabase Setup**
+- **Create a Supabase project**
+- **Add tables:** `profiles`, `grocery_items`, `product_prices`
+- **Copy `supabaseUrl` and `supabaseAnonKey`** into `lib/supabase.js`
 
-Email/password sign up & login via Supabase Auth
-
-"Continue as Guest" option with local session fallback
-
-Proper sign-out functionality
-
-3. Grocery List (Manual Entry)
-
-Add Item Form:
-
-Name (required)
-
-Size (optional)
-
-Category dropdown: produce, protein, snacks, pantry, household
-
-Quantity (number input)
-
-List View:
-
-Displays all grocery items
-
-Search functionality
-
-Sorting by name (A-Z) or category
-
-Add/remove items
-
-Persistent data for logged-in users via Supabase
-
-4. Data Model
-
-Tables:
-
-profiles: id, email
-
-grocery_items: id, user_id, name, size, category, qty, created_at
-
-product_prices: id, product_name, retailer_name, price, size, updated_at
-
-5. Price Comparison Feature
-
-"Find Best Prices" screen shows grocery items with pricing across multiple retailers
-
-Users can adjust 1-5 retailers:
-
-1 = cheapest single store
-
-2 = best 2 stores, etc.
-
-Displays total basket cost and which stores to visit
-
-Setup Instructions
-
-Clone the repository:
-
-git clone https://github.com/uahmed20255/ProxSWEproject.git
-cd ProxSWEproject
-
-
-Install dependencies:
-
-npm install
-
-
-Supabase Setup:
-
-Create a Supabase project
-
-Add tables and seed product prices (see SQL below)
-
-Copy supabaseUrl and supabaseAnonKey into lib/supabase.js
-
-Run the app:
-
+## **Run the App**
+```bash
 npm start
 
 
-Launch on Expo Go app or simulator
+## **Launch**
+- Launch on **Expo Go app** or simulator
 
-Technical Decisions
+## **Database Schema & Sample Data**
 
-React Native / Expo: Cross-platform mobile development
+### **groceries** (linked to Supabase Auth users)
+| Column     | Type      | Notes |
+|-----------|-----------|-------|
+| id        | UUID      | Primary key, default generated |
+| user_id   | UUID      | References auth.users(id) |
+| name      | text      | Required |
+| qty       | int       | Required, default 1 |
+| size      | text      | Optional |
+| category  | text      | Must be one of: produce, protein, snacks, pantry, household, dairy, bakery, meat |
+| created_at| timestamp | Default now |
 
-Supabase: Authentication & persistent storage
+### **product_prices**
+| Column        | Type    | Notes |
+|---------------|--------|-------|
+| id            | UUID    | Primary key, default generated |
+| product_name  | text    | Required |
+| retailer_name | text    | Required |
+| price         | numeric | Required |
+| size          | text    | Optional |
 
-DropDownPicker: Select number of stores in Price Comparison
+### **View: grocery_price_comparison**
+- Joins **groceries** with **product_prices** for price comparison  
+- Includes: `grocery_id`, `user_id`, `grocery_item`, `qty`, `category`, `retailer_name`, `price`, `total_cost` (price × qty)
 
-State Management: useState and useEffect
-
-Price Calculation: calculateBestBasket function finds cheapest items across multiple stores
-
-Challenges & Solutions
-
-Dropdown overlap on UI: Solved with DropDownPicker and zIndex
-
-Multiple store price calculation: Fixed logic to sum cheapest items across all groceries
-
-Data persistence for guest users: Implemented local session fallback
-
-Database Setup & Sample Data
-1. Tables
-
-Groceries Table
-
-CREATE TABLE groceries (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
-  name text NOT NULL,
-  qty int NOT NULL DEFAULT 1,
-  size text,
-  category text CHECK (LOWER(category) IN ('produce','protein','snacks','pantry','household','dairy','bakery','meat')),
-  created_at timestamp DEFAULT now()
-);
-
-
-Product Prices Table
-
-CREATE TABLE product_prices (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_name text NOT NULL,
-  retailer_name text NOT NULL,
-  price numeric(10,2) NOT NULL,
-  size text
-);
-
-
-Indexes
-
-CREATE INDEX idx_groceries_user ON groceries(user_id);
-CREATE INDEX idx_prices_product ON product_prices(product_name);
-
-
-View for Price Comparison
-
-CREATE OR REPLACE VIEW grocery_price_comparison AS
-SELECT 
-  g.id AS grocery_id,
-  g.user_id,
-  g.name AS grocery_item,
-  g.qty,
-  g.size,
-  g.category,
-  p.retailer_name,
-  p.price,
-  p.size AS price_size,
-  (p.price * g.qty) AS total_cost
-FROM groceries g
-JOIN product_prices p
-  ON LOWER(g.name) = LOWER(p.product_name);
-
-2. Seed Product Prices
+### **Sample Product Pricing Data**
+```sql
 INSERT INTO product_prices (product_name, retailer_name, price, size) VALUES
 ('Boneless Skinless Chicken Breasts','Ralphs',2.99,'per lb'),
 ('Boneless Skinless Chicken Breasts','Whole Foods',7.99,'per lb'),
@@ -195,24 +115,4 @@ INSERT INTO product_prices (product_name, retailer_name, price, size) VALUES
 ('Milk','Ralphs',3.29,'1 gallon');
 
 
-Sample Groceries for Testing
 
-INSERT INTO groceries (user_id, name, qty, size, category) VALUES
-('<replace-with-user-id>', 'Milk', 2, '1 gallon', 'dairy'),
-('<replace-with-user-id>', 'Boneless Skinless Chicken Breasts', 1, 'per lb', 'protein'),
-('<replace-with-user-id>', 'Seedless Grapes', 3, 'per lb', 'produce');
-
-
-Note: Replace <replace-with-user-id> with the actual id of a signed-up Supabase user.
-
-Reviewer Instructions
-
-Create a Supabase project.
-
-Run the SQL script to create tables and seed product_prices.
-
-Sign up a test user to get a valid user_id.
-
-Optionally insert some test groceries for that user.
-
-Run the app, sign in, and verify the price comparison feature.
