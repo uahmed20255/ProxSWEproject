@@ -59,6 +59,9 @@ This mobile app allows users to manage a **grocery list** and find the **best pr
 **Install Dependencies:**  
 ```bash
   npm install
+
+
+
 ## **Supabase Setup**
 - **Create a Supabase project**
 - **Add tables:** `profiles`, `grocery_items`, `product_prices`
@@ -114,5 +117,27 @@ INSERT INTO product_prices (product_name, retailer_name, price, size) VALUES
 ('Milk','Aldi',2.45,'1 gallon'),
 ('Milk','Ralphs',3.29,'1 gallon');
 
+## **Sample Grocery Items**  
+*(replace `<USER_ID>` with actual Supabase user ID)*
+
+```sql
+INSERT INTO groceries (user_id, name, qty, size, category) VALUES
+('<USER_ID>', 'Milk', 2, '1 gallon', 'dairy'),
+('<USER_ID>', 'Boneless Skinless Chicken Breasts', 1, 'per lb', 'protein'),
+('<USER_ID>', 'Seedless Grapes', 3, 'per lb', 'produce');
+
+
+
+## **Technical Decisions**
+- **React Native / Expo:** Cross-platform mobile app development
+- **Supabase:** Authentication & persistent storage
+- **DropDownPicker:** Select number of stores in Price Comparison
+- **State Management:** `useState` and `useEffect` for simplicity
+- **Price Calculation:** `calculateBestBasket` function finds cheapest items across groceries
+
+## **Challenges & Solutions**
+- **Dropdown overlap on UI:** Solved with DropDownPicker and zIndex
+- **Multiple store price calculation:** Fixed logic to sum cheapest items across groceries
+- **Data persistence for guest users:** Implemented local session fallback
 
 
