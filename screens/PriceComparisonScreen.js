@@ -11,7 +11,10 @@ import {
 import DropDownPicker from "react-native-dropdown-picker";
 import { supabase } from "../lib/supabase";
 
-export default function PriceComparisonScreen() {
+export default function PriceComparisonScreen({ route }) {
+  const isGuest = route?.params?.isGuest || false;
+  const guestGroceries = route?.params?.groceries || [];
+
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(true);
   const [maxStores, setMaxStores] = useState(1);
@@ -28,7 +31,6 @@ export default function PriceComparisonScreen() {
     { label: "5 Stores", value: 5 },
   ]);
 
-  // Define colors for stores
   const storeColors = ["#FF6B6B", "#4ECDC4", "#FFD93D", "#6A4C93", "#FF8C42"];
 
   useEffect(() => {
@@ -42,31 +44,57 @@ export default function PriceComparisonScreen() {
     }
   }, [results, maxStores]);
 
+  // -------------------- Fetch Data --------------------
   const fetchPriceComparison = async () => {
     setLoading(true);
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError || !user) {
-        Alert.alert("Error", "No logged-in user found");
-        setLoading(false);
-        return;
+      if (isGuest && guestGroceries.length > 0) {
+        // Guest mode
+        let allPrices = [];
+        for (const g of guestGroceries) {
+          const { data, error } = await supabase
+            .from("product_prices")
+            .select("*")
+            .ilike("product_name", g.name);
+
+          if (!error && data.length > 0) {
+            data.forEach((p) => {
+              allPrices.push({
+                grocery_id: g.id,
+                grocery_item: g.name,
+                qty: g.qty,
+                size: g.size,
+                retailer_name: p.retailer_name,
+                price: parseFloat(p.price),
+                price_size: p.size,
+                total_cost: parseFloat(p.price) * g.qty,
+              });
+            });
+          }
+        }
+        setResults(allPrices);
+      } else {
+        // Logged-in user
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError || !user) {
+          Alert.alert("Error", "No logged-in user found");
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("grocery_price_comparison")
+          .select("*")
+          .eq("user_id", user.id);
+
+        if (error) {
+          Alert.alert("Error fetching prices", error.message);
+          setLoading(false);
+          return;
+        }
+
+        setResults(data);
       }
-
-      const { data, error } = await supabase
-        .from("grocery_price_comparison")
-        .select("*")
-        .eq("user_id", user.id);
-
-      if (error) {
-        Alert.alert("Error fetching prices", error.message);
-        setLoading(false);
-        return;
-      }
-
-      setResults(data);
     } catch (err) {
       console.error(err);
       Alert.alert("Error", "Could not fetch price comparison");
@@ -74,44 +102,105 @@ export default function PriceComparisonScreen() {
     setLoading(false);
   };
 
-  // Improved calculateBestBasket for multi-store distribution
+  // -------------------- Basket Calculation --------------------
   function calculateBestBasket(data, maxStores) {
-    const allStores = [...new Set(data.map((item) => item.retailer_name))];
-    const storesToUse = allStores.slice(0, maxStores);
-
-    let assignment = [];
-    let usedStores = new Set();
-
-    // Group items by grocery_id
     const groceryMap = {};
     data.forEach((item) => {
-      if (storesToUse.includes(item.retailer_name)) {
-        if (!groceryMap[item.grocery_id]) groceryMap[item.grocery_id] = [];
-        groceryMap[item.grocery_id].push(item);
+      if (!groceryMap[item.grocery_item]) groceryMap[item.grocery_item] = [];
+      groceryMap[item.grocery_item].push(item);
+    });
+
+    const allStores = [...new Set(data.map((item) => item.retailer_name))];
+
+    if (maxStores === 1) {
+      return findBestSingleStore(groceryMap, allStores);
+    }
+
+    return findBestMultipleStores(groceryMap, allStores, maxStores);
+  }
+
+  function findBestSingleStore(groceryMap, allStores) {
+    let bestResult = null;
+    let bestTotal = Infinity;
+
+    allStores.forEach((store) => {
+      let assignment = [];
+      let total = 0;
+      let valid = true;
+
+      Object.keys(groceryMap).forEach((item) => {
+        const options = groceryMap[item].filter(
+          (x) => x.retailer_name === store
+        );
+        if (options.length === 0) valid = false;
+        else {
+          const cheapest = options.reduce((min, x) =>
+            x.total_cost < min.total_cost ? x : min
+          );
+          assignment.push(cheapest);
+          total += cheapest.total_cost;
+        }
+      });
+
+      if (valid && total < bestTotal) {
+        bestTotal = total;
+        bestResult = { stores: [store], total, assignment };
       }
     });
 
-    Object.values(groceryMap).forEach((items) => {
-      items.sort((a, b) => a.total_cost - b.total_cost);
-      let chosen = items.find(item => !usedStores.has(item.retailer_name));
-      if (!chosen) chosen = items[0];
-
-      assignment.push(chosen);
-      usedStores.add(chosen.retailer_name);
-      if (usedStores.size > maxStores) usedStores.clear();
-    });
-
-    const total = assignment.reduce((sum, item) => sum + item.total_cost, 0);
-    const stores = [...new Set(assignment.map(item => item.retailer_name))];
-
-    return { stores, total, assignment };
+    return bestResult;
   }
 
+  function findBestMultipleStores(groceryMap, allStores, maxStores) {
+    let bestResult = null;
+    let bestTotal = Infinity;
+
+    const combos = getCombinations(allStores, maxStores);
+    combos.forEach((combo) => {
+      let assignment = [];
+      let total = 0;
+      let valid = true;
+
+      Object.keys(groceryMap).forEach((item) => {
+        const options = groceryMap[item].filter((x) =>
+          combo.includes(x.retailer_name)
+        );
+        if (options.length === 0) valid = false;
+        else {
+          const cheapest = options.reduce((min, x) =>
+            x.total_cost < min.total_cost ? x : min
+          );
+          assignment.push(cheapest);
+          total += cheapest.total_cost;
+        }
+      });
+
+      if (valid && total < bestTotal) {
+        bestTotal = total;
+        bestResult = { stores: combo, total, assignment };
+      }
+    });
+
+    return bestResult;
+  }
+
+  function getCombinations(array, size) {
+    if (size === 1) return array.map((v) => [v]);
+    if (size > array.length) return [];
+    const combos = [];
+    for (let i = 0; i <= array.length - size; i++) {
+      const smaller = getCombinations(array.slice(i + 1), size - 1);
+      smaller.forEach((s) => combos.push([array[i], ...s]));
+    }
+    return combos;
+  }
+
+  // -------------------- Render --------------------
   return (
     <View style={styles.container}>
       <Text style={styles.header}>Find Best Prices</Text>
 
-      {/* Max Stores Dropdown */}
+      {/* Dropdown */}
       <View style={{ marginBottom: 15, zIndex: 1000 }}>
         <Text style={styles.label}>Shop From:</Text>
         <DropDownPicker
@@ -119,9 +208,10 @@ export default function PriceComparisonScreen() {
           value={value}
           items={items}
           setOpen={setOpen}
-          setValue={(val) => {
-            setValue(val());
-            setMaxStores(val());
+          setValue={(callback) => {
+            const newValue = callback();
+            setValue(newValue);
+            setMaxStores(newValue);
           }}
           setItems={setItems}
           containerStyle={{ height: 50 }}
@@ -130,13 +220,7 @@ export default function PriceComparisonScreen() {
         />
       </View>
 
-      {loading && (
-        <ActivityIndicator
-          size="large"
-          color="#2E86AB"
-          style={{ marginTop: 50 }}
-        />
-      )}
+      {loading && <ActivityIndicator size="large" color="#2E86AB" />}
 
       {!loading && bestBasket && (
         <View style={styles.summaryWrapper}>
@@ -152,8 +236,8 @@ export default function PriceComparisonScreen() {
       {!loading && bestBasket && (
         <FlatList
           data={bestBasket.assignment}
-          keyExtractor={(item, index) =>
-            `${item.grocery_id}-${item.retailer_name}-${index}`
+          keyExtractor={(item, idx) =>
+            `${item.grocery_id}-${item.retailer_name}-${idx}`
           }
           renderItem={({ item }) => {
             const color =
@@ -209,7 +293,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#fff" },
   header: { fontSize: 26, fontWeight: "bold", marginBottom: 15, color: "#2E86AB" },
   label: { fontSize: 16, fontWeight: "500", marginBottom: 5 },
-
   summaryWrapper: {
     backgroundColor: "#f0f8ff",
     padding: 12,
@@ -237,3 +320,4 @@ const styles = StyleSheet.create({
   total: { fontWeight: "bold", color: "#2E86AB" },
   noData: { marginTop: 20, fontSize: 16, color: "gray", textAlign: "center" },
 });
+
