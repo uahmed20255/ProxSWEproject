@@ -20,7 +20,7 @@ A **React Native / Expo** mobile app that lets users manage a **grocery list** a
 
 ## **Supabase Setup**
 - Create a Supabase project
-- Add tables: profiles, grocery_items, product_prices
+- Add tables: profiles, groceries, product_prices
 - Copy supabaseUrl and supabaseAnonKey into lib/supabase.js
 
 ### **Run the App**
